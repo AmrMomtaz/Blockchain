@@ -16,8 +16,10 @@ public class TxHandler {
      * Creates a public ledger whose current UTXOPool (collection of unspent transaction outputs) is
      * {@code utxoPool}. 
      */
-    public TxHandler(UTXOPool utxoPool) {
-        this.utxoPool = new UTXOPool(utxoPool);
+    public TxHandler(UTXOPool utxoPool) { this.utxoPool = new UTXOPool(utxoPool); }
+
+    public UTXOPool getUtxoPool() {
+        return utxoPool;
     }
 
     /**

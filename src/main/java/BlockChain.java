@@ -4,7 +4,7 @@
  */
 
 // The BlockChain class should maintain only limited block nodes to satisfy the functionality.
-// You should not have all the blocks added to the block chain in memory 
+// You should not have all the blocks added to the blockchain in memory
 // as it would cause a memory overflow.
 
 import java.util.ArrayList;
@@ -106,10 +106,6 @@ public class BlockChain {
      * 5) If the block is added has updated the max height remove old blockchains if necessary.
      * 6) Remove all transactions of the newly added block from the transactions pool.
      */
-    /*
-
-     */
-
     public boolean addBlock(Block block) {
 
         // satisfies (1)
@@ -157,14 +153,16 @@ public class BlockChain {
      * Returns null otherwise.
      */
     private UTXOPool getNewBlockUtxoPoolIfValid(Block newBlock, UTXOPool prevBlockUtxoPool) {
-        UTXOPool tempUtxoPool = new UTXOPool(prevBlockUtxoPool);
-        TxHandler txHandler = new TxHandler(tempUtxoPool);
+        TxHandler txHandler = new TxHandler(prevBlockUtxoPool);
         Transaction[] possibleTxs = newBlock.getTransactions().toArray(new Transaction[0]);
         Transaction[] validTxs = txHandler.handleTxs(possibleTxs);
         if (possibleTxs.length != validTxs.length) // Failure in validating the txs
             return null;
-        else
-            return tempUtxoPool;
+        else {
+            UTXOPool newUtxoPool = txHandler.getUtxoPool();
+            newUtxoPool.addUTXO(new UTXO(newBlock.getCoinbase().getHash(), 0), newBlock.getCoinbase().getOutput(0));
+            return newUtxoPool;
+        }
     }
 
     /**
@@ -217,9 +215,9 @@ public class BlockChain {
             }
             if (blockLevelMap.remove(levelToBeRemoved) == null)
                 throw new RuntimeException("Failure in deleting from blockLevelMap");
-            this.maximumHeight = newBlockHeight;
             System.gc();
         }
+        this.maximumHeight = newBlockHeight;
     }
 
     /**
