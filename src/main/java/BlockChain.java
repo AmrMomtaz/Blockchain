@@ -10,6 +10,7 @@
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Represents the blockchain
@@ -18,81 +19,14 @@ public class BlockChain {
 
     public static final int CUT_OFF_AGE = 10;
 
-    //private Tree blockChainTree;
-
     // All the blocks in the blockHashMap are valid block which satisfies the
     // cut of age constraint
     private final HashMap<ByteArrayWrapper, Block> blockHashMap;
     private final HashMap<Block, UTXOPool> blockUTXOPoolMap;
     private final HashMap<Integer, List<Block>> blockLevelMap;
-    private final Integer maximumHeight;
+    private Integer maximumHeight;
     private final TransactionPool transactionPool;
 
-//    /**
-//     *  Represents the tree data structure.
-//     */
-//    private static final class Tree {
-//        private Node root;
-//
-//        public Tree(Node root) {
-//            this.root = root;
-//        }
-//
-//        public Node getRoot() {
-//            return root;
-//        }
-//
-//        /**
-//         * Returns Node which corresponds to a specific block. (Traversing the tree)
-//         */
-//        public Node getNode(Block block) {
-//            return getNodeHelper(root, new ByteArrayWrapper(block.getHash()));
-//        }
-//
-//        private Node getNodeHelper(Node node, ByteArrayWrapper blockHash) {
-//            if (node == null) // This condition should never be true
-//                return null;
-//            ByteArrayWrapper nodeBlockHash = new ByteArrayWrapper(node.getBlock().getHash());
-//            if (blockHash.equals(nodeBlockHash))
-//                return node;
-//            else {
-//                for (Node child : node.children) {
-//                    if (child == null) // This also should never happen
-//                        continue;
-//                    Node childResult = getNodeHelper(child, blockHash);
-//                    if (childResult != null)
-//                        return childResult;
-//                }
-//            }
-//            return null;
-//        }
-//
-//    }
-//
-//    /**
-//     *  Represents nodes in tree.
-//     */
-//    private static final class Node {
-//        private Block block;
-//        private List<Node> children;
-//
-//        public Node(Block block) {
-//            this.block = block;
-//            this.children = new ArrayList<>();
-//        }
-//
-//        public Block getBlock() {
-//            return block;
-//        }
-//
-//        public List<Node> getChildren() {
-//            return children;
-//        }
-//
-//        public void addChild(Node node) {
-//            this.children.add(node);
-//        }
-//    }
 
     /**
      * create an empty blockchain with just a genesis block. Assume {@code genesisBlock} is a valid
@@ -100,10 +34,6 @@ public class BlockChain {
      * Initializes the blockchain data structures with the genesis block.
      */
     public BlockChain(Block genesisBlock) {
-//        // Initialize the tree
-//        Node root = new Node(genesisBlock);
-//        this.blockChainTree = new Tree(root);
-
         // Initialize hashmap
         blockHashMap = new HashMap<>();
         ByteArrayWrapper genesisBlockHash = new ByteArrayWrapper(genesisBlock.getHash());
@@ -166,18 +96,21 @@ public class BlockChain {
 	 * the current blockchain height exceeds CUT_OFF_AGE + 1, you cannot create a new block at height 2.
      * 
      * @return true if block is successfully added
+     *
+     * Validate the block by doing the following:
+     *
+     * 1) If prev block hash is null returns false.
+     * 2) Check if the prev block exists.
+     * 3) Check if all the transactions in the block are valid.
+     * 4) Add the block in all the datastructures and fork if necessary and update UTXO pools
+     * 5) If the block is added has updated the max height remove old blockchains if necessary.
+     * 6) Remove all transactions of the newly added block from the transactions pool.
      */
+    /*
+
+     */
+
     public boolean addBlock(Block block) {
-        /*
-         * Validate the block by doing the following:
-         *
-         * 1) If prev block hash is null it should return false.
-         * 2) Check if the prev block exists.
-         * 3) Check if all the transactions in the block are valid.
-         * 4) Add the block in all the datastructures and fork if necessary and update UTXO pools
-         * 5) Remove all transactions of the newly added block from the transactions pool.
-         * 6) If the block is added has updated the max height remove old blockchains if necessary.
-         */
 
         // satisfies (1)
         if (block.getPrevBlockHash() == null)
@@ -197,12 +130,15 @@ public class BlockChain {
         /// From here the block is validated and will be added to the blockchain.
 
         // satisfies (4)
-
+        ByteArrayWrapper newBlockHash = new ByteArrayWrapper(block.getHash());
+        Integer newBlockHeight = getBlockHeight(prevBlock) + 1;
+        updateDataStructures(block, newBlockUtxoPool, newBlockHash, newBlockHeight);
 
         // satisfies (5)
+        handleDeletingOldBlocksIfNecessary(newBlockHeight);
 
         // satisfies (6)
-
+        removeTxsFromTxPool(block);
 
         return true;
     }
@@ -231,4 +167,66 @@ public class BlockChain {
             return tempUtxoPool;
     }
 
+    /**
+     * Returns the height of a given block.
+     */
+    private Integer getBlockHeight(Block block) {
+        ByteArrayWrapper blockHash = new ByteArrayWrapper(block.getHash());
+        for (Map.Entry<Integer, List<Block>> entry : blockLevelMap.entrySet()) {
+            for (Block value : entry.getValue()){
+                ByteArrayWrapper valueHash = new ByteArrayWrapper(value.getHash());
+                if (blockHash.equals(valueHash))
+                    return entry.getKey();
+            }
+        }
+        throw new RuntimeException("Failure in getting the block height");
+    }
+
+    /**
+     * Updates data-structures with the new block.
+     */
+    private void updateDataStructures(Block newBlock, UTXOPool newBlockUtxoPool,
+                                      ByteArrayWrapper newBlockHash, Integer newBlockHeight) {
+
+        blockHashMap.put(newBlockHash, newBlock);
+        blockUTXOPoolMap.put(newBlock, newBlockUtxoPool);
+        if (blockLevelMap.containsKey(newBlockHeight))
+            blockLevelMap.get(newBlockHeight).add(newBlock);
+        else {
+            List<Block> newLevel = new ArrayList<>();
+            newLevel.add(newBlock);
+            blockLevelMap.put(newBlockHeight, newLevel);
+        }
+    }
+
+    /**
+     *  Deletes blocks from memory to satisfy the cutoff age constraint if necessary
+     */
+    private void handleDeletingOldBlocksIfNecessary(Integer newBlockHeight) {
+        if (newBlockHeight <= this.maximumHeight)
+            return;
+        Integer levelToBeRemoved = newBlockHeight - CUT_OFF_AGE - 1;
+        if (levelToBeRemoved > 0) {
+            for (Block block : blockLevelMap.get(levelToBeRemoved)) {
+                ByteArrayWrapper blockHash = new ByteArrayWrapper(block.getHash());
+                if (blockHashMap.remove(blockHash) == null)
+                    throw new RuntimeException("Failure in deleting from blockHashMap");
+
+                if (blockUTXOPoolMap.remove(block) == null)
+                    throw new RuntimeException("Failure in deleting from blockUTXOPoolMap");
+            }
+            if (blockLevelMap.remove(levelToBeRemoved) == null)
+                throw new RuntimeException("Failure in deleting from blockLevelMap");
+            this.maximumHeight = newBlockHeight;
+            System.gc();
+        }
+    }
+
+    /**
+     * Removes all the transactions from transaction pool of a given block
+     */
+    private void removeTxsFromTxPool (Block newBlock) {
+        for (Transaction tx : newBlock.getTransactions())
+            transactionPool.removeTransaction(tx.getHash());
+    }
 }
