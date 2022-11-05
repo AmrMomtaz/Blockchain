@@ -7,10 +7,7 @@
 // You should not have all the blocks added to the blockchain in memory
 // as it would cause a memory overflow.
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Represents the blockchain
@@ -21,9 +18,9 @@ public class BlockChain {
 
     // All the blocks in the blockHashMap are valid block which satisfies the
     // cut of age constraint
-    private final HashMap<ByteArrayWrapper, Block> blockHashMap;
-    private final HashMap<Block, UTXOPool> blockUTXOPoolMap;
-    private final HashMap<Integer, List<Block>> blockLevelMap;
+    private final Hashtable<ByteArrayWrapper, Block> blockHashMap;
+    private final Hashtable<Block, UTXOPool> blockUTXOPoolMap;
+    private final Hashtable<Integer, List<Block>> blockLevelMap;
     private Integer maximumHeight;
     private final TransactionPool transactionPool;
 
@@ -35,12 +32,12 @@ public class BlockChain {
      */
     public BlockChain(Block genesisBlock) {
         // Initialize hashmap
-        blockHashMap = new HashMap<>();
+        blockHashMap = new Hashtable<>();
         ByteArrayWrapper genesisBlockHash = new ByteArrayWrapper(genesisBlock.getHash());
         blockHashMap.put(genesisBlockHash, genesisBlock);
 
         // Initialize the UTXO Pool map
-        blockUTXOPoolMap = new HashMap<>();
+        blockUTXOPoolMap = new Hashtable<>();
         UTXOPool genesisBlockUtxoPool = new UTXOPool();
         for (Transaction tx : genesisBlock.getTransactions()) {
             int index = 0;
@@ -51,7 +48,7 @@ public class BlockChain {
         }
         // Adding coinbase transaction if it exists.
         Transaction coinBaseTransaction = genesisBlock.getCoinbase();
-        if (coinBaseTransaction.getOutput(0).address != null
+        if (coinBaseTransaction != null && coinBaseTransaction.getOutput(0).address != null
             && coinBaseTransaction.getOutput(0).value > 0) {
 
             UTXO coinBaseUtxo = new UTXO(coinBaseTransaction.getHash(), 0);
@@ -60,7 +57,7 @@ public class BlockChain {
         blockUTXOPoolMap.put(genesisBlock, genesisBlockUtxoPool);
 
         // Initialize block level hash map
-        blockLevelMap = new HashMap<>();
+        blockLevelMap = new Hashtable<>();
         ArrayList<Block> initialLevelList = new ArrayList<>();
         initialLevelList.add(genesisBlock);
         blockLevelMap.put(1, initialLevelList);
@@ -127,7 +124,7 @@ public class BlockChain {
 
         // satisfies (4)
         ByteArrayWrapper newBlockHash = new ByteArrayWrapper(block.getHash());
-        Integer newBlockHeight = getBlockHeight(prevBlock) + 1;
+        Integer newBlockHeight = getBlockHeight(prevBlockHash) + 1;
         updateDataStructures(block, newBlockUtxoPool, newBlockHash, newBlockHeight);
 
         // satisfies (5)
@@ -168,8 +165,7 @@ public class BlockChain {
     /**
      * Returns the height of a given block.
      */
-    private Integer getBlockHeight(Block block) {
-        ByteArrayWrapper blockHash = new ByteArrayWrapper(block.getHash());
+    private Integer getBlockHeight(ByteArrayWrapper blockHash) {
         for (Map.Entry<Integer, List<Block>> entry : blockLevelMap.entrySet()) {
             for (Block value : entry.getValue()){
                 ByteArrayWrapper valueHash = new ByteArrayWrapper(value.getHash());
