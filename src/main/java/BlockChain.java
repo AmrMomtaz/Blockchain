@@ -18,9 +18,9 @@ public class BlockChain {
 
     // All the blocks in the blockHashMap are valid block which satisfies the
     // cut of age constraint
-    private final Hashtable<ByteArrayWrapper, Block> blockHashMap;
-    private final Hashtable<Block, UTXOPool> blockUTXOPoolMap;
-    private final Hashtable<Integer, List<Block>> blockLevelMap;
+    private final HashMap<ByteArrayWrapper, Block> blockHashMap;
+    private final HashMap<Block, UTXOPool> blockUTXOPoolMap;
+    private final HashMap<Integer, List<Block>> blockLevelMap;
     private Integer maximumHeight;
     private final TransactionPool transactionPool;
 
@@ -32,12 +32,12 @@ public class BlockChain {
      */
     public BlockChain(Block genesisBlock) {
         // Initialize hashmap
-        blockHashMap = new Hashtable<>();
+        blockHashMap = new HashMap<>();
         ByteArrayWrapper genesisBlockHash = new ByteArrayWrapper(genesisBlock.getHash());
         blockHashMap.put(genesisBlockHash, genesisBlock);
 
         // Initialize the UTXO Pool map
-        blockUTXOPoolMap = new Hashtable<>();
+        blockUTXOPoolMap = new HashMap<>();
         UTXOPool genesisBlockUtxoPool = new UTXOPool();
         for (Transaction tx : genesisBlock.getTransactions()) {
             int index = 0;
@@ -57,7 +57,7 @@ public class BlockChain {
         blockUTXOPoolMap.put(genesisBlock, genesisBlockUtxoPool);
 
         // Initialize block level hash map
-        blockLevelMap = new Hashtable<>();
+        blockLevelMap = new HashMap<>();
         ArrayList<Block> initialLevelList = new ArrayList<>();
         initialLevelList.add(genesisBlock);
         blockLevelMap.put(1, initialLevelList);
